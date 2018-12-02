@@ -239,6 +239,25 @@ class Resque
 	}
 
 	/**
+	 * Create a new job and save it to the specified queue, only if one doesn't already exist.
+	 *
+	 * @param string $queue The name of the queue to place the job in.
+	 * @param string $class The name of the class that contains the code to execute the job.
+	 * @param array $args Any optional arguments that should be passed when the job is executed.
+	 * @param boolean $trackStatus Set to true to be able to monitor the status of a job.
+	 *
+	 * @return string|boolean Job ID when the job was created, false if creation was cancelled due to beforeEnqueue
+	 */
+	public static function enqueueUnique($queue, $class, $args = null, $trackStatus = false) {
+		$queuedJob = self::queuedJob($queue, $class, $args);
+		if ($queuedJob) {
+			return $queuedJob['id'];
+		} else {
+			return self::enqueue($queue, $class, $args, $trackStatus);
+		}
+	}
+
+	/**
 	 * Reserve and return the next available job in the specified queue.
 	 *
 	 * @param string $queue Queue to fetch next available job from.
@@ -261,6 +280,27 @@ class Resque
 			$queues = array();
 		}
 		return $queues;
+	}
+
+	/**
+	 * Check if an job is queued
+	 *
+	 * @private
+	 *
+	 * @param string $queue The name of the queue
+	 * @param array $items
+	 * @return integer number of deleted items
+	 */
+	public static function queuedJob($queue, $class, $args = null) {
+		$originalQueue = 'queue:'. $queue;
+		$items = [$class => $args];
+		$queuedJob = @array_filter(self::redis()->lrange($originalQueue, 0, -1), function($string) use ($items) {
+			return self::matchItem($string, $items);
+		})[0];
+
+		if ($queuedJob) {
+			return json_decode($queuedJob, true);
+		}
 	}
 
 	/**
