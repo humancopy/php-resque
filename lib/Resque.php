@@ -294,9 +294,9 @@ class Resque
 	public static function queuedJob($queue, $class, $args = null) {
 		$originalQueue = 'queue:'. $queue;
 		$items = [$class => $args];
-		$queuedJob = @array_filter(self::redis()->lrange($originalQueue, 0, -1), function($string) use ($items) {
+		$queuedJob = @reset(array_filter(self::redis()->lrange($originalQueue, 0, -1), function($string) use ($items) {
 			return self::matchItem($string, $items);
-		})[0];
+		}));
 
 		if ($queuedJob) {
 			return json_decode($queuedJob, true);
